@@ -146,7 +146,26 @@ class RedditModelAdapterFactory(
     ) : JsonAdapter<Any>() {
 
         override fun toJson(writer: JsonWriter?, value: Any?) {
-            throw UnsupportedOperationException("Serializing dynamic models aren't supported right now")
+            if (value == null) {
+                return
+            }
+
+            val potentiallyAutoValueClazz = (value as Any)::class.java
+
+            val kind = registry
+                .filter { it.value.isAssignableFrom(potentiallyAutoValueClazz) }
+                .map { it.key }
+                .firstOrNull()
+                ?: throw UnsupportedOperationException("Serializing dynamic models aren't supported right now")
+
+            val clazz = registry[kind]!!
+
+            writer!!.beginObject()
+            writer.name("kind")
+            writer.value(kind)
+            writer.name("data")
+            moshi.adapter<Any>(clazz).serializeNulls().toJson(writer, value)
+            writer.endObject()
         }
 
         override fun fromJson(reader: JsonReader): Any {
